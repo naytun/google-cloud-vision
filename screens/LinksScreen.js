@@ -38,7 +38,25 @@ export default class LinksScreen extends React.Component {
    }
 
    render() {
-      let { image } = this.state;
+      let { uploading, image, googleResponse } = this.state;
+      let responses =
+         googleResponse && googleResponse.responses[0]
+            ? googleResponse.responses[0]
+            : null;
+      let labelAnnotations,
+         webDetection,
+         fullTextAnnotation,
+         landmarkAnnotations = null;
+
+      if (!uploading && responses) {
+         fullTextAnnotation = responses.fullTextAnnotation
+            ? responses.fullTextAnnotation.text
+            : null;
+         labelAnnotations = responses.labelAnnotations;
+         webDetection = responses.webDetection.bestGuessLabels[0].label;
+         landmarkAnnotations = responses.landmarkAnnotations;
+      }
+      // console.log("responses:", responses);
 
       return (
          <View style={styles.container}>
@@ -51,23 +69,47 @@ export default class LinksScreen extends React.Component {
                      onPress={this._pickImage}
                      title="Pick an image from camera roll"
                   />
-
                   <Button onPress={this._takePhoto} title="Take a photo" />
+
+                  {/* Image */}
                   {this._maybeRenderImage()}
                   {this._maybeRenderUploadingOverlay()}
-                  {this.state.googleResponse && (
-                     <FlatList
-                        data={
-                           this.state.googleResponse.responses[0]
-                              .textAnnotations
-                        }
-                        extraData={this.state}
-                        keyExtractor={this._keyExtractor}
-                        renderItem={({ item }) => (
-                           <Text>Item: {item.description}</Text>
-                        )}
-                     />
-                  )}
+
+                  {labelAnnotations ? (
+                     <View>
+                        {/* Internet Search  */}
+                        <Text style={styles.headingText}>Internet Search</Text>
+                        <Text>{webDetection}</Text>
+
+                        {/* OCR-Text */}
+                        {fullTextAnnotation && fullTextAnnotation.length > 0 ? (
+                           <View>
+                              <Text style={styles.headingText}>OCR Text</Text>
+                              <Text>{fullTextAnnotation}</Text>
+                           </View>
+                        ) : null}
+
+                        {/* Image Label  */}
+                        <Text style={styles.headingText}>
+                           Image Descriptions
+                        </Text>
+                        {labelAnnotations.map((item, index) => {
+                           return <Text key={index}>{item.description}</Text>;
+                        })}
+
+                        {/* Landmark  */}
+                        {landmarkAnnotations ? (
+                           <View>
+                              <Text style={styles.headingText}>Landmark</Text>
+                              {landmarkAnnotations.map((item, index) => {
+                                 return (
+                                    <Text key={index}>{item.description}</Text>
+                                 );
+                              })}
+                           </View>
+                        ) : null}
+                     </View>
+                  ) : null}
                </View>
             </ScrollView>
          </View>
@@ -143,7 +185,7 @@ export default class LinksScreen extends React.Component {
       );
    };
 
-   _keyExtractor = (item, index) => item.id;
+   _keyExtractor = (item, index) => item.description;
 
    _renderItem = item => {
       <Text>response: {JSON.stringify(item)}</Text>;
@@ -164,8 +206,8 @@ export default class LinksScreen extends React.Component {
 
    _takePhoto = async () => {
       let pickerResult = await ImagePicker.launchCameraAsync({
-         allowsEditing: true,
-         aspect: [4, 3]
+         allowsEditing: true
+         //aspect: [4, 3]
       });
 
       this._handleImagePicked(pickerResult);
@@ -173,8 +215,8 @@ export default class LinksScreen extends React.Component {
 
    _pickImage = async () => {
       let pickerResult = await ImagePicker.launchImageLibraryAsync({
-         allowsEditing: true,
-         aspect: [4, 3]
+         allowsEditing: true
+         //aspect: [4, 3]
       });
 
       this._handleImagePicked(pickerResult);
@@ -182,7 +224,7 @@ export default class LinksScreen extends React.Component {
 
    _handleImagePicked = async pickerResult => {
       try {
-         this.setState({ uploading: true, googleResponse: null });
+         this.setState({ uploading: true, image: null, googleResponse: null });
 
          if (!pickerResult.cancelled) {
             uploadUrl = await uploadImageAsync(pickerResult.uri);
@@ -236,7 +278,7 @@ export default class LinksScreen extends React.Component {
             }
          );
          let responseJson = await response.json();
-         console.log(responseJson);
+         //console.log(responseJson);
          this.setState({
             googleResponse: responseJson,
             uploading: false
@@ -282,15 +324,16 @@ const styles = StyleSheet.create({
       backgroundColor: "#fff",
       paddingBottom: 10
    },
+   contentContainer: {
+      flexGrow: 1,
+      justifyContent: "center"
+   },
    developmentModeText: {
       marginBottom: 20,
       color: "rgba(0,0,0,0.4)",
       fontSize: 14,
       lineHeight: 19,
       textAlign: "center"
-   },
-   contentContainer: {
-      paddingTop: 30
    },
    welcomeContainer: {
       alignItems: "center",
@@ -308,13 +351,13 @@ const styles = StyleSheet.create({
       alignItems: "center",
       marginHorizontal: 50
    },
-
-   getStartedText: {
-      fontSize: 20,
+   headingText: {
+      fontSize: 17,
       fontWeight: "bold",
       color: "rgba(96,100,109, 1)",
       lineHeight: 24,
-      textAlign: "center"
+      textAlign: "center",
+      marginVertical: 10
    },
 
    helpContainer: {
